@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>OHM Power Solutions · A Lagos Street at Dusk</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --gold:#FFC53D; --gold-deep:#E5A916; --ink:#0D0B14; --cream:#FBF3E4;
+    --card:#FFF9EC; --brown:#5A3B22; --teal:#2F7E76;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;overflow:hidden;background:var(--ink)}
+  body{font-family:'Fredoka',sans-serif;color:var(--cream)}
+  #game{position:fixed;inset:0;display:block;width:100vw;height:100vh}
+
+  /* ---------- HUD ---------- */
+  #hud{position:fixed;top:14px;left:14px;display:flex;align-items:center;gap:12px;
+    background:rgba(13,11,20,.78);border:2px solid rgba(255,197,61,.55);border-radius:16px;
+    padding:8px 14px;backdrop-filter:blur(4px);z-index:20;user-select:none}
+  #hud .omega{font-family:'Anton',sans-serif;font-size:22px;color:var(--gold);line-height:1}
+  #hud .label{font-size:11px;letter-spacing:.14em;opacity:.75;text-transform:uppercase}
+  #hud .dots{display:flex;gap:5px;margin-top:2px}
+  #hud .dot{width:11px;height:11px;border-radius:50%;border:2px solid var(--gold);transition:background .4s}
+  #hud .dot.on{background:var(--gold);box-shadow:0 0 8px rgba(255,197,61,.9)}
+  #hint{position:fixed;bottom:14px;right:14px;background:rgba(13,11,20,.72);
+    border:1.5px solid rgba(251,243,228,.25);border-radius:12px;padding:7px 13px;
+    font-size:12.5px;letter-spacing:.03em;z-index:20;user-select:none}
+  #hint b{color:var(--gold)}
+
+  /* ---------- Overlays ---------- */
+  .overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+    background:rgba(10,8,16,.82);z-index:40;padding:20px;opacity:1;transition:opacity .35s}
+  .overlay.hidden{opacity:0;pointer-events:none}
+  .panel{max-width:520px;width:100%;text-align:center;background:linear-gradient(180deg,#151222,#0D0B14);
+    border:2px solid var(--gold);border-radius:24px;padding:38px 32px;box-shadow:0 0 60px rgba(255,197,61,.18)}
+  .panel .big-omega{font-family:'Anton',sans-serif;font-size:64px;color:var(--gold);
+    text-shadow:0 0 24px rgba(255,197,61,.6);line-height:1}
+  .panel h1{font-family:'Anton',sans-serif;font-size:clamp(26px,5vw,40px);letter-spacing:.04em;
+    margin:12px 0 4px;color:var(--cream);text-transform:uppercase}
+  .panel .sub{color:var(--gold);font-weight:600;font-size:15px;margin-bottom:14px}
+  .panel p{font-size:15px;line-height:1.55;color:rgba(251,243,228,.85);margin-bottom:10px}
+  .panel .controls{display:inline-block;margin:10px 0 18px;padding:10px 16px;border:1.5px dashed rgba(255,197,61,.5);
+    border-radius:12px;font-size:13.5px;color:rgba(251,243,228,.9)}
+  .btn{font-family:'Fredoka',sans-serif;font-weight:700;font-size:16px;cursor:pointer;
+    background:var(--gold);color:#231803;border:none;border-radius:999px;padding:13px 34px;
+    box-shadow:0 4px 0 var(--gold-deep);transition:transform .08s, box-shadow .08s}
+  .btn:hover{transform:translateY(-1px)}
+  .btn:active{transform:translateY(2px);box-shadow:0 1px 0 var(--gold-deep)}
+  .btn:focus-visible{outline:3px solid #fff;outline-offset:2px}
+  .btn.ghost{background:transparent;color:var(--gold);border:2px solid var(--gold);box-shadow:none;margin-left:10px}
+  .tiny{font-size:11.5px;opacity:.55;margin-top:16px}
+
+  /* ---------- Dialog (Animal-Crossing style card) ---------- */
+  #dialog{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);
+    width:min(560px,calc(100vw - 28px));background:var(--card);color:var(--brown);
+    border-radius:22px;border:3px solid var(--gold-deep);box-shadow:0 14px 40px rgba(0,0,0,.5);
+    z-index:30;opacity:0;pointer-events:none;transition:opacity .22s, transform .22s}
+  #dialog.open{opacity:1;pointer-events:auto;transform:translateX(-50%) translateY(0)}
+  #dialog .tag{position:absolute;top:-16px;left:22px;background:var(--gold);color:#231803;
+    font-weight:700;font-size:12px;letter-spacing:.12em;text-transform:uppercase;
+    padding:6px 14px;border-radius:999px;box-shadow:0 3px 0 var(--gold-deep)}
+  #dialog .inner{padding:26px 24px 20px}
+  #dialog h2{font-family:'Anton',sans-serif;font-size:24px;letter-spacing:.02em;
+    color:#3A2410;text-transform:uppercase;margin-bottom:8px;display:flex;align-items:center;gap:10px}
+  #dialog h2 .homega{font-size:22px;color:var(--gold-deep)}
+  #dialog p{font-size:15.5px;line-height:1.6;margin-bottom:8px}
+  #dialog .stat{display:inline-block;background:rgba(255,197,61,.22);border:1.5px solid var(--gold-deep);
+    border-radius:10px;padding:6px 12px;font-weight:600;font-size:13.5px;margin:4px 0 10px}
+  #dialog .row{display:flex;align-items:center;justify-content:space-between;margin-top:10px;flex-wrap:wrap;gap:10px}
+  #dialog .progress{font-size:13px;font-weight:600;color:#8A6B3A}
+  #dialog .btn{padding:10px 24px;font-size:14.5px}
+
+  /* ---------- Touch controls ---------- */
+  #touch{display:none;z-index:25}
+  body.touch #touch{display:block}
+  body.touch #hint{display:none}
+  #stick{position:fixed;left:22px;bottom:26px;width:118px;height:118px;border-radius:50%;
+    background:rgba(251,243,228,.10);border:2px solid rgba(251,243,228,.35)}
+  #knob{position:absolute;left:50%;top:50%;width:52px;height:52px;border-radius:50%;
+    background:rgba(255,197,61,.85);transform:translate(-50%,-50%);box-shadow:0 3px 8px rgba(0,0,0,.4)}
+  #abtn{position:fixed;right:26px;bottom:40px;width:74px;height:74px;border-radius:50%;
+    background:var(--gold);color:#231803;font-family:'Anton',sans-serif;font-size:26px;border:none;
+    box-shadow:0 5px 0 var(--gold-deep);cursor:pointer}
+  #abtn:active{transform:translateY(3px);box-shadow:0 2px 0 var(--gold-deep)}
+
+  @media (prefers-reduced-motion: reduce){
+    .overlay,#dialog{transition:none}
+  }
+</style>
+</head>
+<body>
+<canvas id="game" aria-label="A walkable Lagos street scene. Find the five glowing OHM homes."></canvas>
+
+<div id="hud" aria-live="polite">
+  <span class="omega">&#937;</span>
+  <div>
+    <div class="label">Glowing homes found</div>
+    <div class="dots" id="dots"></div>
+  </div>
+</div>
+<div id="hint"><b>WASD / arrows</b> walk &nbsp;·&nbsp; <b>E</b> talk to a glowing home</div>
+
+<div id="touch">
+  <div id="stick"><div id="knob"></div></div>
+  <button id="abtn" aria-label="Interact">A</button>
+</div>
+
+<!-- Intro -->
+<div class="overlay" id="intro">
+  <div class="panel">
+    <div class="big-omega">&#937;</div>
+    <h1>A Lagos street at dusk</h1>
+    <div class="sub">OHM Power Solutions</div>
+    <p>The grid just went down again. Most of the street went dark with it.</p>
+    <p><strong style="color:var(--gold)">But five homes never noticed.</strong> Walk the street, find the glow, and see how OHM is rewiring how Nigeria runs on the sun.</p>
+    <div class="controls" id="introControls">WASD or arrow keys to walk &nbsp;·&nbsp; E to talk to a glowing home</div>
+    <br>
+    <button class="btn" id="startBtn">Take a walk</button>
+    <div class="tiny">A subsidiary of Ejoma Africa Limited &nbsp;·&nbsp; africaohm.io</div>
+  </div>
+</div>
+
+<!-- Finale -->
+<div class="overlay hidden" id="finale">
+  <div class="panel">
+    <div class="big-omega">&#937;</div>
+    <h1>Up NEPA? No. Up OHM.</h1>
+    <div class="sub">5 of 5 homes found</div>
+    <p>While the rest of the street flickered, these five never blinked. That is the whole idea: Nigeria already has the panels. OHM brings the intelligence.</p>
+    <p style="color:rgba(251,243,228,.65);font-size:13.5px">Steady light, powered by autonomous energy intelligence.</p>
+    <br>
+    <a href="https://africaohm.io" target="_blank" rel="noopener"><button class="btn">Visit africaohm.io</button></a>
+    <button class="btn ghost" id="againBtn">Keep walking</button>
+  </div>
+</div>
+
+<!-- House dialog -->
+<div id="dialog" role="dialog" aria-modal="true" aria-labelledby="dTitle">
+  <div class="tag" id="dTag">OHM HOME</div>
+  <div class="inner">
+    <h2 id="dTitle"><span class="homega">&#937;</span><span id="dTitleText"></span></h2>
+    <div id="dBody"></div>
+    <div class="row">
+      <span class="progress" id="dProg"></span>
+      <button class="btn" id="dClose">Keep walking</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+"use strict";
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const isTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+if (isTouch) document.body.classList.add('touch');
+if (isTouch) document.getElementById('introControls').textContent = 'Drag the joystick to walk · tap A to talk to a glowing home';
+
+/* ================= WORLD CONSTANTS =================
+   World height is fixed at 640 units; canvas scales to fit. */
+const WH = 640, WORLD_W = 3000;
+const BUILD_BASE = 302;          // building baseline / top sidewalk
+const ROAD_TOP = 372, ROAD_BOT = 476;
+const WALK_MIN_Y = 316, WALK_MAX_Y = 552;
+
+/* ================= CONTENT (from the OHM deck) ================= */
+const HOUSES = [
+  {
+    title:"Panels everywhere, brains nowhere", tag:"The problem",
+    body:`<p>Nigeria is Africa's second largest importer of solar panels, and adoption keeps accelerating. But most systems run as isolated hardware: manual switches, fixed inverter rules, and repairs that only happen after something breaks.</p>
+          <div class="stat">1,700+ MW of panels imported by mid 2025</div>
+          <p>All that hardware, almost none of it thinking. That is the gap OHM exists to close.</p>`
+  },
+  {
+    title:"The house that thinks", tag:"Autonomous AI",
+    body:`<p>OHM replaces manual switching and static rules with agentic AI that decides in real time. It continuously reads solar output, battery health, load patterns, and grid reliability, then acts before problems land.</p>
+          <p>No dashboard babysitting. No guesswork. The system runs itself, so the lights just stay on.</p>`
+  },
+  {
+    title:"Stronger together", tag:"Estate network",
+    body:`<p>OHM aggregates every solar system in an estate into one coordinated network. Fragmented rooftops become shared, intelligently managed infrastructure with predictable performance.</p>
+          <div class="stat">80+ gated estates in Lagos alone</div>
+          <p>Many hold hundreds of homes each. One estate at a time, scattered panels become a real energy grid.</p>`
+  },
+  {
+    title:"It saw that coming", tag:"Predictive engine",
+    body:`<p>Instead of reacting to failures, OHM forecasts them. Battery stress, load spikes, and grid instability are predicted before they happen, so the platform can act early.</p>
+          <p>Systems last longer, downtime shrinks, and the savings that used to leak away stay in your pocket.</p>`
+  },
+  {
+    title:"Mend the roof first", tag:"The OHM way",
+    body:`<p>An old proverb says: mend the roof before building a new house. OHM plugs into the solar Nigeria already owns, adding deployment and integration, 24/7 monitoring, optimization advisory, and clear savings reports for homeowners and estates.</p>
+          <p>Steady light, powered by intelligence. See it for real at <strong>africaohm.io</strong>.</p>`
+  }
+];
+
+/* ================= WORLD GENERATION ================= */
+const PALETTE = ["#E8D5A9","#C96F4A","#7FA8A0","#D9A05B","#B8B2A6","#9C6B4F","#E0B084","#A8908F"];
+const buildings = [];
+(function genBuildings(){
+  // 13 buildings; OHM homes at indices spread across the street
+  const ohmIdx = new Set([1,4,6,9,12]);
+  let x = 70, houseNum = 0;
+  for (let i=0;i<13;i++){
+    const w = 170 + ((i*53)%80);
+    const h = 130 + ((i*37)%70);
+    const isOhm = ohmIdx.has(i);
+    buildings.push({
+      x, w, h, color: PALETTE[i % PALETTE.length],
+      isOhm, houseIndex: isOhm ? houseNum++ : -1,
+      visited:false, windows: 2 + (i%2), floors: h>170?2:1,
+      flick: Math.random()*10
+    });
+    x += w + 42 + ((i*29)%40);
+  }
+})();
+
+/* streetlights */
+const lights = [];
+for (let lx=180; lx<WORLD_W-100; lx+=340) lights.push({x:lx});
+
+/* NPC pedestrians (all brown-skinned, varied tones and outfits) */
+const SKINS = ["#8D5524","#6B4226","#A0693D","#7A4A21","#96603A"];
+const SHIRTS = ["#E4572E","#17BEBB","#FFC914","#76B041","#9B5DE5","#F25F8F"];
+const PANTS = ["#2B3A67","#4B3F2F","#20524E","#5A2A4E"];
+const BUBBLES = ["Up NEPA!","Light don go again","Gen don spoil o","Which estate get light?","See glow!"];
+const npcs = [];
+for (let i=0;i<7;i++){
+  npcs.push({
+    x: 200 + Math.random()*(WORLD_W-400),
+    y: 330 + Math.random()*200,
+    dir: Math.random()<.5?-1:1, speed: 26+Math.random()*30,
+    skin: SKINS[i%SKINS.length], shirt: SHIRTS[i%SHIRTS.length],
+    pants: PANTS[i%PANTS.length], f: Math.random()*10,
+    bubbleT: 4+Math.random()*14, bubble:null, bubbleLife:0, fem: i%3===0
+  });
+}
+
+/* the danfo bus */
+const danfo = { x:-400, y: ROAD_TOP+18, speed: 150, active:false, timer: 5 };
+
+/* player */
+const player = { x: 150, y: 470, dir: 1, f: 0, moving:false,
+  skin:"#8D5524", shirt:"#FFC914", pants:"#2B3A67" };
+
+/* grid outage flicker event */
+const grid = { t: 3, active:false, dur:0 };
+
+/* ================= INPUT ================= */
+const keys = {};
+let interactQueued = false;
+addEventListener('keydown', e=>{
+  if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key)) e.preventDefault();
+  keys[e.key.toLowerCase()] = true;
+  if ((e.key==='e'||e.key==='E'||e.key==='Enter'||e.key===' ') ) interactQueued = true;
+  if (e.key==='Escape') closeDialog();
+});
+addEventListener('keyup', e=>{ keys[e.key.toLowerCase()] = false; });
+
+/* joystick */
+const stickEl = document.getElementById('stick'), knob = document.getElementById('knob');
+let joy = {x:0,y:0,on:false};
+function stickPos(t){
+  const r = stickEl.getBoundingClientRect();
+  const cx = r.left + r.width/2, cy = r.top + r.height/2;
+  let dx = t.clientX-cx, dy = t.clientY-cy;
+  const m = Math.hypot(dx,dy), max = r.width/2;
+  if (m>max){ dx=dx/m*max; dy=dy/m*max; }
+  knob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+  joy.x = dx/max; joy.y = dy/max; joy.on = true;
+}
+stickEl.addEventListener('touchstart', e=>{e.preventDefault();stickPos(e.touches[0]);},{passive:false});
+stickEl.addEventListener('touchmove', e=>{e.preventDefault();stickPos(e.touches[0]);},{passive:false});
+stickEl.addEventListener('touchend', ()=>{ joy={x:0,y:0,on:false}; knob.style.transform='translate(-50%,-50%)'; });
+document.getElementById('abtn').addEventListener('click', ()=>{ interactQueued = true; });
+
+/* ================= UI ================= */
+const dots = document.getElementById('dots');
+for (let i=0;i<5;i++){ const d=document.createElement('span'); d.className='dot'; dots.appendChild(d); }
+function refreshDots(){
+  const vis = buildings.filter(b=>b.isOhm&&b.visited).length;
+  [...dots.children].forEach((d,i)=> d.classList.toggle('on', i<vis));
+  return vis;
+}
+const dialog = document.getElementById('dialog');
+let paused = true, dialogOpen = false, finaleShown = false;
+
+function openDialog(b){
+  const h = HOUSES[b.houseIndex];
+  document.getElementById('dTag').textContent = h.tag;
+  document.getElementById('dTitleText').textContent = h.title;
+  document.getElementById('dBody').innerHTML = h.body;
+  b.visited = true;
+  const vis = refreshDots();
+  document.getElementById('dProg').textContent = `Home ${b.houseIndex+1} of 5 · ${vis}/5 found`;
+  dialog.classList.add('open'); dialogOpen = true; paused = true;
+  document.getElementById('dClose').focus();
+}
+function closeDialog(){
+  if (!dialogOpen) return;
+  dialog.classList.remove('open'); dialogOpen = false; paused = false;
+  const vis = buildings.filter(b=>b.isOhm&&b.visited).length;
+  if (vis===5 && !finaleShown){
+    finaleShown = true;
+    setTimeout(()=>{ document.getElementById('finale').classList.remove('hidden'); paused = true; }, 650);
+  }
+}
+document.getElementById('dClose').addEventListener('click', closeDialog);
+document.getElementById('startBtn').addEventListener('click', ()=>{
+  document.getElementById('intro').classList.add('hidden'); paused = false;
+});
+document.getElementById('againBtn').addEventListener('click', ()=>{
+  document.getElementById('finale').classList.add('hidden'); paused = false;
+});
+
+/* ================= CANVAS SCALING ================= */
+let scale=1, viewW=0, camX=0;
+function resize(){
+  const dpr = Math.min(devicePixelRatio||1, 2);
+  canvas.width = innerWidth*dpr; canvas.height = innerHeight*dpr;
+  scale = innerHeight/WH * dpr;
+  viewW = canvas.width/scale;
+}
+addEventListener('resize', resize); resize();
+
+/* ================= DRAW HELPERS ================= */
+function rr(x,y,w,h,r){ ctx.beginPath(); ctx.roundRect(x,y,w,h,r); }
+
+function drawPerson(p, size=1){
+  const f = p.moving===false && p!==player ? p.f : p.f;
+  const bob = reduceMotion?0:Math.sin(f*10)*2;
+  const legSwing = reduceMotion?0:Math.sin(f*10)*6;
+  const x=p.x, y=p.y;
+  ctx.save(); ctx.translate(x,y); ctx.scale(size*(p.dir<0?-1:1), size);
+  // shadow
+  ctx.fillStyle='rgba(0,0,0,.28)'; ctx.beginPath(); ctx.ellipse(0,4,15,5,0,0,7); ctx.fill();
+  // legs
+  ctx.strokeStyle=p.pants; ctx.lineWidth=6; ctx.lineCap='round';
+  ctx.beginPath(); ctx.moveTo(-4,-16); ctx.lineTo(-4+legSwing*0.6,0); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(5,-16); ctx.lineTo(5-legSwing*0.6,0); ctx.stroke();
+  // body
+  ctx.fillStyle=p.shirt; rr(-11,-34+bob*.4,22,20,8); ctx.fill();
+  // ankara dots on shirt
+  ctx.fillStyle='rgba(255,255,255,.5)';
+  ctx.beginPath(); ctx.arc(-5,-27+bob*.4,1.6,0,7); ctx.arc(3,-22+bob*.4,1.6,0,7); ctx.arc(6,-30+bob*.4,1.6,0,7); ctx.fill();
+  // arms
+  ctx.strokeStyle=p.skin; ctx.lineWidth=5;
+  ctx.beginPath(); ctx.moveTo(-11,-30); ctx.lineTo(-14,-18+legSwing*.3); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(11,-30); ctx.lineTo(14,-18-legSwing*.3); ctx.stroke();
+  // head
+  ctx.fillStyle=p.skin; ctx.beginPath(); ctx.arc(0,-45+bob,13,0,7); ctx.fill();
+  // hair
+  ctx.fillStyle='#1C120A';
+  if (p.fem){ ctx.beginPath(); ctx.arc(0,-49+bob,12.5,Math.PI,0); ctx.fill();
+    ctx.beginPath(); ctx.arc(-9,-42+bob,4.5,0,7); ctx.arc(9,-42+bob,4.5,0,7); ctx.fill(); }
+  else { ctx.beginPath(); ctx.arc(0,-49+bob,12,Math.PI*0.95,Math.PI*0.05); ctx.fill(); }
+  // face
+  ctx.fillStyle='#241509';
+  ctx.beginPath(); ctx.arc(4,-46+bob,1.8,0,7); ctx.arc(10,-46+bob,1.8,0,7); ctx.fill();
+  ctx.strokeStyle='#241509'; ctx.lineWidth=1.4;
+  ctx.beginPath(); ctx.arc(7,-41+bob,3,0.15*Math.PI,0.85*Math.PI); ctx.stroke();
+  ctx.restore();
+}
+
+function drawBubble(x,y,text){
+  ctx.font='600 12px Fredoka'; const w = ctx.measureText(text).width+18;
+  ctx.fillStyle='rgba(251,243,228,.95)';
+  rr(x-w/2, y-34, w, 22, 10); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(x-4,y-12); ctx.lineTo(x+4,y-12); ctx.lineTo(x,y-5); ctx.fill();
+  ctx.fillStyle='#4A3018'; ctx.textAlign='center'; ctx.fillText(text, x, y-19); ctx.textAlign='left';
+}
+
+function drawBuilding(b, t, gridDim){
+  const bx=b.x, bw=b.w, bh=b.h, by=BUILD_BASE;
+  // OHM glow halo
+  if (b.isOhm){
+    const pulse = reduceMotion?0.9:(0.85+Math.sin(t*2+b.x)*0.15);
+    const g = ctx.createRadialGradient(bx+bw/2, by-bh/2, 10, bx+bw/2, by-bh/2, bw*0.95);
+    g.addColorStop(0,`rgba(255,197,61,${0.34*pulse})`);
+    g.addColorStop(1,'rgba(255,197,61,0)');
+    ctx.fillStyle=g; ctx.fillRect(bx-bw*0.5, by-bh-120, bw*2, bh+180);
+  }
+  // body
+  ctx.fillStyle=b.color; rr(bx, by-bh, bw, bh, 6); ctx.fill();
+  ctx.fillStyle='rgba(0,0,0,.16)'; rr(bx, by-bh, bw, 10, {tl:6,tr:6,bl:0,br:0}); ctx.fill();
+  // roof
+  ctx.fillStyle= b.isOhm ? '#3A2A1A' : '#4A3A2C';
+  rr(bx-8, by-bh-14, bw+16, 16, 5); ctx.fill();
+  // solar panels for OHM homes
+  if (b.isOhm){
+    const px = bx+10, pw = bw-20;
+    ctx.save(); ctx.translate(px, by-bh-16); ctx.transform(1,0,-0.32,0.8,0,0);
+    ctx.fillStyle='#1B2C4A'; rr(0,-26,pw,26,3); ctx.fill();
+    ctx.fillStyle='#3D6199'; rr(2,-24,pw-4,22,2); ctx.fill();
+    ctx.strokeStyle='rgba(255,255,255,.35)'; ctx.lineWidth=1;
+    for(let gx=2+ (pw-4)/4; gx<pw-4; gx+=(pw-4)/4){ ctx.beginPath(); ctx.moveTo(gx,-24); ctx.lineTo(gx,-2); ctx.stroke(); }
+    ctx.beginPath(); ctx.moveTo(2,-13); ctx.lineTo(pw-2,-13); ctx.stroke();
+    // sun glint
+    ctx.fillStyle='rgba(255,255,255,.28)'; ctx.beginPath();
+    ctx.moveTo(6,-24); ctx.lineTo(16,-24); ctx.lineTo(8,-2); ctx.lineTo(-2,-2); ctx.fill();
+    ctx.restore();
+    // floating omega (silver chrome, matches OHM logo)
+    const ob = reduceMotion?0:Math.sin(t*2.4+b.x*0.02)*6;
+    const ogx = bx+bw/2, ogy = by-bh-52+ob;
+    ctx.font='42px Anton'; ctx.textAlign='center';
+    const chrome = ctx.createLinearGradient(0, ogy-40, 0, ogy+6);
+    chrome.addColorStop(0,'#FFFFFF');
+    chrome.addColorStop(0.45,'#E4E9F0');
+    chrome.addColorStop(0.75,'#B6BFCC');
+    chrome.addColorStop(1,'#8E99A9');
+    ctx.shadowColor='rgba(214,226,244,.9)'; ctx.shadowBlur=16;
+    ctx.fillStyle=chrome; ctx.fillText('\u03A9', ogx, ogy);
+    ctx.shadowBlur=0;
+    ctx.lineWidth=1.2; ctx.strokeStyle='rgba(16,27,46,.55)';
+    ctx.strokeText('\u03A9', ogx, ogy);
+    ctx.textAlign='left';
+  }
+  // door
+  ctx.fillStyle= b.isOhm ? '#7A4A1E' : '#584234';
+  rr(bx+bw/2-14, by-40, 28, 40, {tl:10,tr:10,bl:0,br:0}); ctx.fill();
+  ctx.fillStyle='rgba(255,255,255,.25)'; ctx.beginPath(); ctx.arc(bx+bw/2+7, by-20, 2.2,0,7); ctx.fill();
+  // windows
+  const floors = b.floors, perFloor=b.windows;
+  for (let fl=0; fl<floors; fl++){
+    const wy = by-bh+28+fl*58;
+    for (let wI=0; wI<perFloor; wI++){
+      const wx = bx + (bw/(perFloor+1))*(wI+1) - 13;
+      let lit, alpha;
+      if (b.isOhm){ lit=true; alpha=1; }
+      else {
+        const flicker = gridDim ? (Math.sin(t*30+b.flick+wI*3)>0.4?0.15:0.02) : 0.32;
+        lit = ((wI+fl+Math.floor(b.flick))%3!==0);
+        alpha = lit?flicker:0.02;
+      }
+      ctx.fillStyle = b.isOhm ? '#FFE49A' : `rgba(255,214,140,${alpha})`;
+      rr(wx, wy, 26, 30, 4); ctx.fill();
+      if (b.isOhm){ ctx.shadowColor='rgba(255,197,61,.8)'; ctx.shadowBlur=12; rr(wx,wy,26,30,4); ctx.fill(); ctx.shadowBlur=0; }
+      ctx.strokeStyle='rgba(40,25,10,.5)'; ctx.lineWidth=2;
+      rr(wx,wy,26,30,4); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(wx+13,wy); ctx.lineTo(wx+13,wy+30); ctx.stroke();
+    }
+  }
+  // visited check
+  if (b.isOhm && b.visited){
+    ctx.fillStyle='#3E8E41'; ctx.beginPath(); ctx.arc(bx+bw-16, by-bh+4, 11,0,7); ctx.fill();
+    ctx.strokeStyle='#fff'; ctx.lineWidth=3; ctx.beginPath();
+    ctx.moveTo(bx+bw-21, by-bh+4); ctx.lineTo(bx+bw-17, by-bh+9); ctx.lineTo(bx+bw-10, by-bh-2); ctx.stroke();
+  }
+}
+
+function drawDanfo(d){
+  const x=d.x, y=d.y;
+  ctx.save(); ctx.translate(x,y);
+  ctx.fillStyle='rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(60,46,66,9,0,0,7); ctx.fill();
+  ctx.fillStyle='#F7C948'; rr(0,0,124,42,8); ctx.fill();          // body
+  ctx.fillStyle='#171310'; rr(0,16,124,8,2); ctx.fill();           // black stripe
+  ctx.fillStyle='#BFE3F2'; rr(8,6,26,16,3); ctx.fill(); rr(40,6,22,16,3); ctx.fill(); rr(68,6,22,16,3); ctx.fill(); rr(96,6,20,16,3); ctx.fill();
+  ctx.fillStyle='#171310';
+  ctx.beginPath(); ctx.arc(28,44,10,0,7); ctx.fill(); ctx.beginPath(); ctx.arc(96,44,10,0,7); ctx.fill();
+  ctx.fillStyle='#888'; ctx.beginPath(); ctx.arc(28,44,4.5,0,7); ctx.fill(); ctx.beginPath(); ctx.arc(96,44,4.5,0,7); ctx.fill();
+  ctx.font='700 10px Fredoka'; ctx.fillStyle='#171310'; ctx.fillText('LEKKI · VGC', 34, 36);
+  ctx.restore();
+}
+
+/* ================= UPDATE ================= */
+let last = performance.now();
+function update(dt, t){
+  // grid flicker event
+  grid.t -= dt;
+  if (grid.t<=0){
+    if (!grid.active){ grid.active=true; grid.dur=1.6+Math.random()*1.6; grid.t=grid.dur; }
+    else { grid.active=false; grid.t=6+Math.random()*9; }
+  }
+
+  if (!paused){
+    // player movement
+    let mx=0,my=0;
+    if (keys['a']||keys['arrowleft']) mx-=1;
+    if (keys['d']||keys['arrowright']) mx+=1;
+    if (keys['w']||keys['arrowup']) my-=1;
+    if (keys['s']||keys['arrowdown']) my+=1;
+    if (joy.on){ mx=joy.x; my=joy.y; }
+    const m = Math.hypot(mx,my);
+    player.moving = m>0.15;
+    if (player.moving){
+      mx/=Math.max(m,1); my/=Math.max(m,1);
+      player.x += mx*185*dt; player.y += my*160*dt;
+      if (Math.abs(mx)>0.1) player.dir = mx<0?-1:1;
+      player.f += dt* (reduceMotion?0:1.4);
+      player.x = Math.max(30, Math.min(WORLD_W-30, player.x));
+      player.y = Math.max(WALK_MIN_Y, Math.min(WALK_MAX_Y, player.y));
+    }
+  }
+
+  // NPCs
+  for (const n of npcs){
+    if (!paused){
+      n.x += n.dir*n.speed*dt; n.f += dt;
+      if (n.x<120){n.dir=1;} if (n.x>WORLD_W-120){n.dir=-1;}
+    }
+    n.bubbleT -= dt;
+    if (n.bubbleT<=0){
+      n.bubble = BUBBLES[Math.floor(Math.random()*BUBBLES.length)];
+      n.bubbleLife = 2.4; n.bubbleT = 9+Math.random()*16;
+    }
+    if (n.bubbleLife>0) n.bubbleLife-=dt;
+  }
+
+  // danfo
+  danfo.timer -= dt;
+  if (!danfo.active && danfo.timer<=0){ danfo.active=true; danfo.x=camX-320; danfo.y = Math.random()<.5?ROAD_TOP+8:ROAD_TOP+52; }
+  if (danfo.active){
+    danfo.x += danfo.speed*dt;
+    if (danfo.x > WORLD_W+200){ danfo.active=false; danfo.timer=7+Math.random()*10; }
+  }
+
+  // camera
+  const target = player.x - viewW/2;
+  camX += (target-camX)*Math.min(1, dt*6);
+  camX = Math.max(0, Math.min(WORLD_W-viewW, camX));
+
+  // interaction
+  let near = null;
+  for (const b of buildings){
+    if (!b.isOhm) continue;
+    if (player.x > b.x-12 && player.x < b.x+b.w+12 && player.y < 372) { near = b; break; }
+  }
+  if (interactQueued && near && !dialogOpen && !paused) openDialog(near);
+  interactQueued = false;
+  return near;
+}
+
+/* ================= RENDER ================= */
+function render(t, near){
+  ctx.setTransform(scale,0,0,scale, -camX*scale, 0);
+  // sky
+  const sky = ctx.createLinearGradient(0,0,0,BUILD_BASE);
+  sky.addColorStop(0,'#1E1B3A'); sky.addColorStop(.55,'#4A2C5E'); sky.addColorStop(1,'#C05A38');
+  ctx.fillStyle=sky; ctx.fillRect(camX,0,viewW,BUILD_BASE);
+  // sun
+  ctx.fillStyle='rgba(255,217,138,.9)'; ctx.beginPath(); ctx.arc(camX+viewW*0.72, 236, 34,0,7); ctx.fill();
+  ctx.fillStyle='rgba(255,170,90,.25)'; ctx.beginPath(); ctx.arc(camX+viewW*0.72, 236, 58,0,7); ctx.fill();
+  // stars
+  ctx.fillStyle='rgba(255,255,255,.5)';
+  for(let i=0;i<24;i++){ const sx=(i*397)%WORLD_W, sy=(i*173)%140+14;
+    if (sx>camX-10 && sx<camX+viewW+10) { ctx.globalAlpha=.3+((i*7)%10)/16; ctx.fillRect(sx,sy,2,2);} }
+  ctx.globalAlpha=1;
+  // far skyline
+  ctx.fillStyle='#171429';
+  for (let sx=0; sx<WORLD_W; sx+=210){
+    const sh = 60+((sx*13)%70);
+    if (sx>camX-260 && sx<camX+viewW+40) ctx.fillRect(sx, BUILD_BASE-70-sh, 150, sh+70);
+  }
+  // ground: top sidewalk, road, bottom sidewalk
+  ctx.fillStyle='#B5713F'; ctx.fillRect(camX,BUILD_BASE,viewW,ROAD_TOP-BUILD_BASE);
+  ctx.fillStyle='#3E3833'; ctx.fillRect(camX,ROAD_TOP,viewW,ROAD_BOT-ROAD_TOP);
+  ctx.fillStyle='#C9B27A';
+  for(let lx=Math.floor(camX/70)*70; lx<camX+viewW; lx+=70) ctx.fillRect(lx, (ROAD_TOP+ROAD_BOT)/2-2, 34, 4);
+  ctx.fillStyle='#A5683B'; ctx.fillRect(camX,ROAD_BOT,viewW,WH-ROAD_BOT);
+  ctx.fillStyle='rgba(0,0,0,.08)';
+  for(let px=Math.floor(camX/46)*46; px<camX+viewW; px+=46){ ctx.fillRect(px,BUILD_BASE,1.5,ROAD_TOP-BUILD_BASE); ctx.fillRect(px+20,ROAD_BOT,1.5,WH-ROAD_BOT); }
+  // curbs
+  ctx.fillStyle='#6E4A2E'; ctx.fillRect(camX,ROAD_TOP-4,viewW,4); ctx.fillRect(camX,ROAD_BOT,viewW,4);
+
+  // buildings
+  for (const b of buildings){
+    if (b.x+b.w<camX-140||b.x>camX+viewW+140) continue;
+    drawBuilding(b, t, grid.active);
+  }
+
+  // interact prompt above nearest OHM door
+  if (near && !dialogOpen){
+    const px = near.x+near.w/2, py = BUILD_BASE-52;
+    ctx.font='700 13px Fredoka';
+    const label = isTouch ? 'Tap A to learn' : 'Press E to learn';
+    const w = ctx.measureText(label).width+22;
+    const bobP = reduceMotion?0:Math.sin(t*4)*3;
+    ctx.fillStyle='rgba(13,11,20,.85)'; rr(px-w/2, py-16+bobP, w, 26, 12); ctx.fill();
+    ctx.strokeStyle='#FFC53D'; ctx.lineWidth=1.5; rr(px-w/2, py-16+bobP, w, 26, 12); ctx.stroke();
+    ctx.fillStyle='#FFC53D'; ctx.textAlign='center'; ctx.fillText(label, px, py+2+bobP); ctx.textAlign='left';
+  }
+
+  // streetlights (flicker with the grid)
+  for (const L of lights){
+    if (L.x<camX-40||L.x>camX+viewW+40) continue;
+    ctx.strokeStyle='#2A2320'; ctx.lineWidth=5;
+    ctx.beginPath(); ctx.moveTo(L.x, ROAD_BOT+2); ctx.lineTo(L.x, 340); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(L.x, 340); ctx.lineTo(L.x+26, 332); ctx.stroke();
+    const on = grid.active ? (Math.sin(t*26+L.x)>0.2) : true;
+    ctx.fillStyle = on ? '#FFE9AE' : '#3B342C';
+    ctx.beginPath(); ctx.arc(L.x+30, 332, 6,0,7); ctx.fill();
+    if (on){ const lg=ctx.createRadialGradient(L.x+30,332,4,L.x+30,332,70);
+      lg.addColorStop(0,'rgba(255,233,174,.30)'); lg.addColorStop(1,'rgba(255,233,174,0)');
+      ctx.fillStyle=lg; ctx.beginPath(); ctx.arc(L.x+30,332,70,0,7); ctx.fill(); }
+  }
+
+  // y-sorted actors
+  const actors = [];
+  for (const n of npcs) if (n.x>camX-60&&n.x<camX+viewW+60) actors.push({y:n.y, draw:()=>{ drawPerson(n,0.92); if(n.bubbleLife>0) drawBubble(n.x, n.y-62, n.bubble); }});
+  if (danfo.active) actors.push({y:danfo.y+46, draw:()=>drawDanfo(danfo)});
+  actors.push({y:player.y, draw:()=>drawPerson(player,1)});
+  actors.sort((a,b)=>a.y-b.y).forEach(a=>a.draw());
+
+  // dusk vignette
+  ctx.setTransform(1,0,0,1,0,0);
+  const v = ctx.createLinearGradient(0,canvas.height*0.78,0,canvas.height);
+  v.addColorStop(0,'rgba(13,11,20,0)'); v.addColorStop(1,'rgba(13,11,20,.35)');
+  ctx.fillStyle=v; ctx.fillRect(0,0,canvas.width,canvas.height);
+}
+
+/* ================= LOOP ================= */
+function loop(now){
+  const dt = Math.min(0.05,(now-last)/1000); last = now;
+  const t = now/1000;
+  const near = update(dt,t);
+  render(t, near);
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
